@@ -14,10 +14,10 @@ from Utils.streamlit_utils import handle_image, StreamHandler, resize_image
 from langchain_core.prompts import ChatPromptTemplate
 from streamlit_js_eval import streamlit_js_eval
 
-IS_LOCAL = True
+IS_LOCAL = False
 IMAGE_HEIGHT_RATIO = 0.75
 if IS_LOCAL:
-    LOGO_PATH = "/Users/yarivadan/projects/VSProjects/Ratatouai/ratatouai/ratatouai/static/logo.png"
+    LOGO_PATH = "/Users/yarivadan/projects/VSProjects/Ratatouai/static/logo.png"
 else:
     LOGO_PATH = "./static/logo.png"
 ROLE_USER = "user"
