@@ -43,11 +43,11 @@ def run():
     
     if 'secret_keys' not in st.session_state:
         # Check if API keys were given via secrets
-        """try:
-            if "openai" in st.secrets and "key" in st.secrets["openai"] and "anthropic" in st.secrets and "key" in st.secrets["anthropic"]:
-                openai_api_key = st.secrets["openai"]["key"]
-                anthropic_api_key = st.secrets["anthropic"]["key"]
-        except:"""
+        #try:
+            #if "openai" in st.secrets and "key" in st.secrets["openai"] and "anthropic" in st.secrets and "key" in st.secrets["anthropic"]:
+                #openai_api_key = st.secrets["openai"]["key"]
+                #anthropic_api_key = st.secrets["anthropic"]["key"]
+        #except:
         # Get API keys from the side bar fields
         with st.sidebar:
             openai_api_key = st.text_input("OpenAI API Key", key="openai_api_key", type="password")
