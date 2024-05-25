@@ -7,11 +7,10 @@ from typing import List
 # Related third-party imports
 from PIL import Image
 import streamlit as st  
-from screeninfo import get_monitors
 
 # Local application/library specific imports
-import ratatouai.Utils.model_utils as mu
-from ratatouai.Utils.streamlit_utils import handle_image, StreamHandler, resize_image
+import Utils.model_utils as mu
+from Utils.streamlit_utils import handle_image, StreamHandler, resize_image
 from langchain_core.prompts import ChatPromptTemplate
 from streamlit_js_eval import streamlit_js_eval
 
