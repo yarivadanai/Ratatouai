@@ -1,0 +1,18 @@
+# python virtual environment
+.venv
+
+
+.env
+
+# json logs
+/*.json
+
+__pycache__/
+
+
+# LLM models
+models/
+
+.DS_Store
+
+.streamlit/secrets.toml
