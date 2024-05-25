@@ -4,11 +4,9 @@ from typing import Generator, List, Callable
 
 # Third-party library imports
 from anthropic import APIStatusError
-from dotenv import load_dotenv, find_dotenv
 from pydantic import BaseModel, Field
 from langchain_anthropic import ChatAnthropic
 from langchain_community.llms import Ollama
-from langchain.chains import LLMChain
 from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
 from langchain_core.language_models.llms import BaseLLM
 from langchain_core.messages import HumanMessage
@@ -18,14 +16,13 @@ from langchain_core.pydantic_v1 import BaseModel, Field
 from langchain_openai import ChatOpenAI
 from langsmith import traceable
 
+# Local application/library specific imports
+import Utils.prompts as prompts 
+from Utils.streamlit_utils import StreamHandler
+
 # Constants
 LLAMA3_MODEL = "llama3"
 CLAUDE3_OPUS_MODEL = "claude-3-opus-20240229"
-
-# Local application/library specific imports
-import ratatouai.Utils.prompts as prompts 
-from ratatouai.Utils.streamlit_utils import StreamHandler
-
 
 class ImageAnswer(BaseModel):
     """Model for image analysis results."""
