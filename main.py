@@ -94,9 +94,6 @@ def run():
         
         st.markdown("<h1 style='text-align: center;'>Welcome to RatatouAI!</h1>", unsafe_allow_html=True)
 
-    if not mu.verify_api_keys(st.session_state.secret_keys['openai_api_key'], st.session_state.secret_keys['anthropic_api_key']):
-        return
-
     for message in st.session_state.messages:
         with container.chat_message(message["role"]):
             if message["type"] == "image":
