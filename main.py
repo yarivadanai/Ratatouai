@@ -55,10 +55,21 @@ def run():
             anthropic_api_key = st.text_input("Anthropic API Key", key="anthropic_api_key", type="password")
             "[Get an Anthropic API key](https://www.anthropic.com/api)" 
             st.info("Please enter your API keys in the side bar fields.")
-        if openai_api_key and anthropic_api_key:
-            st.session_state.secret_keys={}
-            st.session_state.secret_keys['openai_api_key'] = openai_api_key
-            st.session_state.secret_keys['anthropic_api_key'] = anthropic_api_key
+            pswrd=st.text_input("Enter Password to use our own keys", key="pswrd", type="password")
+           
+            if pswrd==st.secrets["pswrd"]["key"]:
+                openai_api_key = st.secrets["openai"]["key"]
+                anthropic_api_key = st.secrets["anthropic"]["key"]
+            if st.button("Verify Keys"):
+                if mu.verify_api_keys(openai_api_key, anthropic_api_key):
+                    st.session_state.secret_keys={}
+                    st.session_state.secret_keys['openai_api_key'] = openai_api_key
+                    st.session_state.secret_keys['anthropic_api_key'] = anthropic_api_key
+                    st.success("API keys verified successfully.")
+                else:
+                    st.error("Invalid API keys. Please try again.")
+                    return
+
        
     if 'messages' not in st.session_state:
         st.session_state.messages=deque(maxlen=50)
@@ -82,6 +93,9 @@ def run():
                     </p>".format(base64.b64encode(open(LOGO_PATH, 'rb').read()).decode()), unsafe_allow_html=True)
         
         st.markdown("<h1 style='text-align: center;'>Welcome to RatatouAI!</h1>", unsafe_allow_html=True)
+
+    if not mu.verify_api_keys(st.session_state.secret_keys['openai_api_key'], st.session_state.secret_keys['anthropic_api_key']):
+        return
 
     for message in st.session_state.messages:
         with container.chat_message(message["role"]):
