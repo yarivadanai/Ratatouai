@@ -69,6 +69,8 @@ def run():
                 else:
                     st.error("Invalid API keys. Please try again.")
                     return
+            else:
+                return
 
        
     if 'messages' not in st.session_state:
