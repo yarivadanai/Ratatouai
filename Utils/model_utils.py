@@ -59,7 +59,15 @@ def get_chat_gpt(openai_api_key, model_name="gpt-4o"):
     """Returns an instance of the ChatOpenAI model with a specified model name."""
     return ChatOpenAI(temperature=0, model_name=model_name, api_key=openai_api_key)
 
-
+def verify_api_keys(openai_api_key: str, anthropic_api_key: str):
+    """Verifies the API keys and returns True if they are valid."""
+    try:
+        chat = get_chat_gpt(openai_api_key)
+        chat = get_claude3_opus(anthropic_api_key)
+        return True
+    except APIStatusError:
+        return False
+    
 @traceable
 def run_full_chain(images: List[str], stream_handler: StreamHandler):
     """Runs the full chain of image analysis and chat models."""
