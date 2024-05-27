@@ -122,7 +122,7 @@ class RatBrain:
 
         for recipe in recipes:
             recipe = recipe.json()
-
+            """
             missing_ingredients_prompt = self._get_prompt_template(
                 prompts.system_ingredients_gaps_prompt_template,
                 prompts.human_ingredients_gaps_prompt_template
@@ -144,9 +144,22 @@ class RatBrain:
             chain = (
                 {"missing_ingredients": missing_ingredients, "reflection": reflection, "recipe": RunnablePassthrough()} |
                 formatted_recipe_prompt | self.formatting_model | StrOutputParser()
-            )
+            )"""
 
-            self.stream_handler.stream(self._stream_chain(chain, {"recipe": recipe, "ingredients_list": ingredients}), True)
+            missing_ingredients=self._execute_chain(prompts.system_ingredients_gaps_prompt_template,
+                prompts.human_ingredients_gaps_prompt_template, self.reasoning_model, StrOutputParser(),
+                {"recipe": recipe, "ingredients_list": ingredients})
+            
+            reflection=self._execute_chain(prompts.system_recipe_reflection_prompt_template,
+                prompts.human_recipe_reflection_prompt_template, self.reasoning_model, StrOutputParser(),
+                {"recipe": recipe})
+            
+            self._execute_chain(prompts.system_content_formatting_prompt_template,
+                prompts.human_final_formatting_prompt_template, self.formatting_model, StrOutputParser(),
+                {"missing_ingredients": missing_ingredients, "reflection": reflection, "recipe": recipe}, True)
+
+
+            #self.stream_handler.stream(self._stream_chain(chain, {"recipe": recipe, "ingredients_list": ingredients}), True)
 
         self.stream_handler.close()
 
@@ -215,7 +228,9 @@ class RatBrain:
     def reply(self, user_prompt: str) -> str:
         """Replies to a user prompt and returns the result. Includes the last 10~ messages in the conversation."""
         chat = self.reasoning_model
-        messages = [(m["role"], m["content"]) for m in self.stream_handler.messages if m["type"] == "text"]
+        messages = [(m["role"], m["content"]) for m in self.stream_handler.messages if m["type"] == "text"][:-1]
+        messages.insert(0,("system", prompts.system_chitchat_prompt_template))
+        messages.append(("user", user_prompt))
 
         prompt_template = ChatPromptTemplate.from_messages(messages)
         chain = prompt_template | chat | StrOutputParser()

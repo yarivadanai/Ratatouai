@@ -6,8 +6,14 @@ from typing import Callable
 import jsonpatch
 
 # Constants
+IS_LOCAL = False
 MAX_IMAGE_SIZE = 1080
 WIDTH_RATIO = 0.6
+if IS_LOCAL:
+    LOGO_PATH = "/Users/yarivadan/projects/VSProjects/Ratatouai/static/logo.png"
+else:
+    LOGO_PATH = "./static/logo.png"
+AVATAR=Image.open(LOGO_PATH)
 
 class StreamHandler:
     """Handles streaming of messages in a Streamlit app."""
@@ -24,22 +30,23 @@ class StreamHandler:
         For jsonoutputparser objects - use a diff method and apply jsonpatch to connect the diffs
         """
         if persist:
-            response = self.container.chat_message("assistant").write_stream(streamer)
+            response = self.container.chat_message("assistant", avatar=AVATAR).write_stream(streamer)
             self.messages.append({"type": "text", "role": "assistant", "content": response})
         else:
             initial_json = {}
             draft = self.container.empty()
             for diff in streamer:
-                initial_json = jsonpatch.apply_patch(initial_json, diff)
-                draft.write(initial_json)
-
-            response = initial_json
+                if isinstance(diff, list):
+                    initial_json = jsonpatch.apply_patch(initial_json, diff)
+                    draft.write(initial_json)
+                    response = initial_json
+            
         return response
 
     def write(self, output: str, persist: bool = False) -> None:
         """Writes a message. If persist is True, the message is persisted."""
         if persist:
-            self.container.chat_message("assistant").write(output)
+            self.container.chat_message("assistant", avatar=AVATAR).write(output)
             self.messages.append({"type": "text", "role": "assistant", "content": output})
         else:
             self.draft.write(output)
