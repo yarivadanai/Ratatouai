@@ -240,7 +240,7 @@ Here is the JSON instance formatted to conform to the provided JSON schema:
 
 system_ingredients_gaps_prompt_template="You are the top food editor in 'food, wine, & travel' magazine. You are an expert at carefully reviewing content and finding even the smallest mistakes. "
 
-human_ingredients_gaps_prompt_templatee="""
+human_ingredients_gaps_prompt_template="""
 Here is your task:
 Below is a recipe description, and a list of ingredients. You need to identify whether the recipe requires any additional ingredients that are not listed in the provided ingredients list. 
 If there are any missing ingredients, you need to identify and list them.
@@ -259,7 +259,7 @@ If there are no missing ingredients, don't say anything, just respond with an em
 ### Recipe reflection     ###
 #############################
 
-system_recipe_reflection_prompt_templatee ="You are a nutritionist and health expert. You are an expert at analyzing recipes, calculating their calorie and nutrient values, and providing insights on how they can be made healthier."
+system_recipe_reflection_prompt_template ="You are a nutritionist and health expert. You are an expert at analyzing recipes, calculating their calorie and nutrient values, and providing insights on how they can be made healthier."
 
 human_recipe_reflection_prompt_template="""
 Here is your task:

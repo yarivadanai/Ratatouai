@@ -19,21 +19,22 @@ class StreamHandler:
         self.session_state = session_state
 
     def stream(self, streamer: Callable, persist: bool = False) -> str:
-
-        """Streams messages from a streamer. If persist is True, the messages are persisted.
-        For jsonoutputparser objects - use a diff method and apply jsonpatch to connect the diffs"""
+        """
+        Streams messages from a streamer. If persist is True, the messages are persisted.
+        For jsonoutputparser objects - use a diff method and apply jsonpatch to connect the diffs
+        """
         if persist:
             response = self.container.chat_message("assistant").write_stream(streamer)
             self.messages.append({"type": "text", "role": "assistant", "content": response})
         else:
-            initial_json={}
+            initial_json = {}
             draft = self.container.empty()
             for diff in streamer:
                 initial_json = jsonpatch.apply_patch(initial_json, diff)
                 draft.write(initial_json)
 
-            response=initial_json
-        return response    
+            response = initial_json
+        return response
 
     def write(self, output: str, persist: bool = False) -> None:
         """Writes a message. If persist is True, the message is persisted."""
@@ -46,10 +47,14 @@ class StreamHandler:
     def close(self):
         """Closes the stream."""
         self.session_state['running'] = False
-    
+
 
 def handle_image(img: Image) -> str:
-    """Opens the image, resizes it, and converts it to base64."""
+    """
+    Opens the image, resizes it, and converts it to base64.
+    :param img: The image to handle.
+    :return: The base64 encoded image.
+    """
     # Open the image and resize it
     image = Image.open(img)
     ratio = max(image.width, image.height) // MAX_IMAGE_SIZE
@@ -62,8 +67,15 @@ def handle_image(img: Image) -> str:
 
     return img_str
 
+
 def resize_image(img: Image, width: int, height: int) -> Image:
-    """Resizes an image while maintaining its aspect ratio."""
+    """
+    Resizes an image while maintaining its aspect ratio.
+    :param img: The image to resize.
+    :param width: The desired width of the image.
+    :param height: The desired height of the image.
+    :return: The resized image.
+    """
     # Calculate the aspect ratio of the image
     aspect_ratio = img.width / img.height
 
