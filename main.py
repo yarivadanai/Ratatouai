@@ -100,14 +100,26 @@ def add_uploaded_images(container: st.container, images: List[str], uploaded_fil
         page_height (int): The height of the page.
     """
     for img in uploaded_files:
-        img_str = handle_image(img)
-        images.append(img_str)
-        st.session_state.messages.append({"type": "image", "role": "user", "content": img_str})
-        with container.chat_message("user"):
-            image = Image.open(img)
-            image = resize_image(image, page_width, page_height)
-            st.image(image)
+        add_uploaded_image(container, images, img, page_width, page_height)
 
+def add_uploaded_image(container: st.container, images: List[str], img, page_width: int, page_height: int) -> None:
+    """
+    Adds uploaded image to the Streamlit container and the images list.
+
+    Args:
+        container (st.container): The Streamlit container to display the images.
+        img (List[str]): The list to store the image strings.
+        img: The uploaded image file.
+        page_width (int): The width of the page.
+        page_height (int): The height of the page.
+    """
+    img_str = handle_image(img)
+    images.append(img_str)
+    st.session_state.messages.append({"type": "image", "role": "user", "content": img_str})
+    with container.chat_message("user"):
+        image = Image.open(img)
+        image = resize_image(image, page_width, page_height)
+        st.image(image)
 
 def run():
     """
@@ -170,7 +182,7 @@ def run():
                                           disabled=st.session_state['running'])
 
         if img_file_buffer is not None:
-            add_uploaded_images(container, images, img_file_buffer, page_width, page_height)
+            add_uploaded_image(container, images, img_file_buffer, page_width, page_height)
             st.session_state['camera_input_key'] += 1
 
     stream_handler = StreamHandler(container, st.session_state)
