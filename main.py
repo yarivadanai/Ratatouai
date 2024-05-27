@@ -11,14 +11,10 @@ from streamlit_js_eval import streamlit_js_eval
 
 # Local application/library specific imports
 import Utils.model_utils as mu
-from Utils.streamlit_utils import handle_image, StreamHandler, resize_image
+from Utils.streamlit_utils import AVATAR, LOGO_PATH, handle_image, StreamHandler, resize_image
 
-IS_LOCAL = False
 IMAGE_HEIGHT_RATIO = 0.75
-if IS_LOCAL:
-    LOGO_PATH = "/Users/yarivadan/projects/VSProjects/Ratatouai/static/logo.png"
-else:
-    LOGO_PATH = "./static/logo.png"
+
 ROLE_USER = "user"
 TYPE_IMAGE = "image"
 TYPE_TEXT = "text"
@@ -137,6 +133,7 @@ def run():
     if 'models' not in st.session_state:
         st.info("Please select the models and enter your API keys in the side bar fields.")
 
+
     container_height = int(page_height * IMAGE_HEIGHT_RATIO)
     container = st.container(border=True, height=container_height)
 
@@ -150,7 +147,7 @@ def run():
         return
 
     for message in st.session_state.messages:
-        with container.chat_message(message["role"]):
+        with container.chat_message(message["role"], avatar=AVATAR if message["role"] == "assistant" else None):
             if message["type"] == "image":
                 st.image(Image.open(io.BytesIO(base64.b64decode(message["content"]))))
             else:
