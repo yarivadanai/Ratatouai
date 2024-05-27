@@ -20,6 +20,8 @@ langchain-openai = "^0.1.6"
 langsmith = "^0.1.60"
 screeninfo = "^0.8.1"
 streamlit-js-eval = "^0.1.7"
+jsondiff = "^2.0.0"
+deepdiff = "^7.0.1"
 
 
 [build-system]

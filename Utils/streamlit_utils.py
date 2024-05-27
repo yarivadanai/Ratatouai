@@ -3,6 +3,7 @@ import io
 import base64
 import streamlit as st
 from typing import Callable
+import jsonpatch
 
 # Constants
 MAX_IMAGE_SIZE = 1080
@@ -14,18 +15,25 @@ class StreamHandler:
     def __init__(self, container, session_state):
         """Initializes the StreamHandler with a container and a session state."""
         self.container = container
-        self.draft = container.empty()
         self.messages = session_state.messages
         self.session_state = session_state
 
     def stream(self, streamer: Callable, persist: bool = False) -> str:
-        """Streams messages from a streamer. If persist is True, the messages are persisted."""
+
+        """Streams messages from a streamer. If persist is True, the messages are persisted.
+        For jsonoutputparser objects - use a diff method and apply jsonpatch to connect the diffs"""
         if persist:
             response = self.container.chat_message("assistant").write_stream(streamer)
             self.messages.append({"type": "text", "role": "assistant", "content": response})
         else:
-            response = self.draft.write_stream(streamer)
-        return response
+            initial_json={}
+            draft = self.container.empty()
+            for diff in streamer:
+                initial_json = jsonpatch.apply_patch(initial_json, diff)
+                draft.write(initial_json)
+
+            response=initial_json
+        return response    
 
     def write(self, output: str, persist: bool = False) -> None:
         """Writes a message. If persist is True, the message is persisted."""
@@ -38,12 +46,6 @@ class StreamHandler:
     def close(self):
         """Closes the stream."""
         self.session_state['running'] = False
-    
-    def get_openai_key(self):
-        return self.session_state.secret_keys['openai_api_key']
-
-    def get_anthropic_key(self):
-        return self.session_state.secret_keys['anthropic_api_key']
     
 
 def handle_image(img: Image) -> str:
