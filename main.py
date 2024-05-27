@@ -24,6 +24,8 @@ ROLE_USER = "user"
 TYPE_IMAGE = "image"
 TYPE_TEXT = "text"
 
+MODELS = ["gpt-4o", "claude-3-opus-20240229"]
+
 
 st.set_page_config(
     page_title="RatatouAI",
@@ -40,39 +42,7 @@ def run():
        footer {visibility: hidden;}
        </style>
        """
-    
-    if 'secret_keys' not in st.session_state:
-        # Check if API keys were given via secrets
-        #try:
-            #if "openai" in st.secrets and "key" in st.secrets["openai"] and "anthropic" in st.secrets and "key" in st.secrets["anthropic"]:
-                #openai_api_key = st.secrets["openai"]["key"]
-                #anthropic_api_key = st.secrets["anthropic"]["key"]
-        #except:
-        # Get API keys from the side bar fields
-        with st.sidebar:
-            openai_api_key = st.text_input("OpenAI API Key", key="openai_api_key", type="password")
-            "[Get an OpenAI API key](https://platform.openai.com/account/api-keys)"
-            anthropic_api_key = st.text_input("Anthropic API Key", key="anthropic_api_key", type="password")
-            "[Get an Anthropic API key](https://www.anthropic.com/api)" 
-            st.info("Please enter your API keys in the side bar fields.")
-            pswrd=st.text_input("Enter Password to use our own keys", key="pswrd", type="password")
-           
-            if pswrd==st.secrets["pswrd"]["key"]:
-                openai_api_key = st.secrets["openai"]["key"]
-                anthropic_api_key = st.secrets["anthropic"]["key"]
-            if st.button("Verify Keys"):
-                if mu.verify_api_keys(openai_api_key, anthropic_api_key):
-                    st.session_state.secret_keys={}
-                    st.session_state.secret_keys['openai_api_key'] = openai_api_key
-                    st.session_state.secret_keys['anthropic_api_key'] = anthropic_api_key
-                    st.success("API keys verified successfully.")
-                else:
-                    st.error("Invalid API keys. Please try again.")
-                    return
-            else:
-                return
-
-       
+                  
     if 'messages' not in st.session_state:
         st.session_state.messages=deque(maxlen=50)
     if 'file_uploader_key' not in st.session_state:
@@ -83,8 +53,9 @@ def run():
         st.session_state.running=False
 
     
-    page_height = int(streamlit_js_eval(js_expressions='window.outerHeight', key='HEIGHT', want_output=True))
-    page_width = int(streamlit_js_eval(js_expressions='window.innerWidth', key='WIDTH', want_output=True))
+    page_height, page_width = get_window_dimensions()
+    if 'models' not in st.session_state:
+        st.info("Please select the models and enter your API keys in the side bar fields.")
 
     container_height = int(page_height * IMAGE_HEIGHT_RATIO)
     container = st.container(border=True, height=container_height)
@@ -95,6 +66,9 @@ def run():
                     </p>".format(base64.b64encode(open(LOGO_PATH, 'rb').read()).decode()), unsafe_allow_html=True)
         
         st.markdown("<h1 style='text-align: center;'>Welcome to RatatouAI!</h1>", unsafe_allow_html=True)
+    
+    if 'models' not in st.session_state and not setup_models():
+        return 
 
     for message in st.session_state.messages:
         with container.chat_message(message["role"]):
@@ -124,12 +98,12 @@ def run():
             st.session_state['camera_input_key'] += 1
 
     stream_handler = StreamHandler(container, st.session_state)
+    rat_brain = mu.RatBrain(stream_handler, st.session_state.models)
 
     if len(images) > 0:
 
-        #with container.chat_message("assistant"):
         st.session_state['running']=True
-        mu.run_full_chain(images, stream_handler) 
+        rat_brain.run_full_chain(images) 
 
     input_container = st.container()
 
@@ -140,7 +114,48 @@ def run():
         with container.chat_message(ROLE_USER):
             st.write(user_prompt)
         with st.spinner("Thinking..."):
-            mu.reply(user_prompt, stream_handler)
+            rat_brain.reply(user_prompt)
+
+def get_window_dimensions():
+    page_height = streamlit_js_eval(js_expressions='window.outerHeight', key='HEIGHT', want_output=True) or 800
+    page_width = streamlit_js_eval(js_expressions='window.innerWidth', key='WIDTH', want_output=True) or 1000
+
+    return int(page_height), int(page_width)
+
+
+def get_model_and_key(name):
+    model = st.selectbox(f"Select {name} Model", MODELS)
+    key = st.text_input(f"Insert API Key for {name} model", key=f"{name}_key", type="password")
+    return model, key
+
+def setup_models():
+    with st.sidebar:
+        st.markdown("**Select the models and enter your API keys**")
+        models = {}
+        for name in ['vision', 'reasoning', 'formatting']:
+            models[name] = {}
+            models[name]['model'], models[name]['key'] = get_model_and_key(name)
+
+        st.markdown("**Or enter Password to use our own models and key**")
+        pswrd = st.text_input("Password", key="pswrd", type="password")
+
+        if st.button("Submit"):
+            if pswrd == st.secrets["pswrd"]["key"]:
+                for name in ['vision', 'reasoning', 'formatting']:
+                    models[name]['model'] = st.secrets[name]["model"]
+                    models[name]['key'] = st.secrets[name]["key"]
+
+            models_obj = mu.Models((models['vision']['model'], models['vision']['key']), 
+                                   (models['reasoning']['model'], models['reasoning']['key']), 
+                                   (models['formatting']['model'], models['formatting']['key']))
+            with st.spinner("Verifying API keys..."):
+                if models_obj.verify_api_keys():
+                    st.session_state.models = models_obj
+                    st.success("API keys verified successfully.")
+                    return True
+                else:
+                    st.error("Invalid API keys. Please try again.")
+                    return False
 
 def add_uploaded_images(container: st.container, images: List[str], uploaded_files: List[any], page_width: int, page_height: int) -> None:
     """Adds uploaded images to the Streamlit container and the images list."""
@@ -151,7 +166,7 @@ def add_uploaded_images(container: st.container, images: List[str], uploaded_fil
 
         with container.chat_message(ROLE_USER):
             image = Image.open(img)
-            # Resize the image
+            # Resize the image for chat view
             image = resize_image(image, page_width, page_height)
             st.image(image)
 
