@@ -29,6 +29,7 @@ class StreamHandler:
         Streams messages from a streamer. If persist is True, the messages are persisted.
         For jsonoutputparser objects - use a diff method and apply jsonpatch to connect the diffs
         """
+        response = ""
         if persist:
             response = self.container.chat_message("assistant", avatar=AVATAR).write_stream(streamer)
             self.messages.append({"type": "text", "role": "assistant", "content": response})
