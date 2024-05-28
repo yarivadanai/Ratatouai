@@ -101,7 +101,7 @@ class RatBrain:
         """Runs the full chain of image analysis and chat models."""
         food_items = set()
 
-        self.stream_handler.write("Looking for food ingredients...", True)
+        self.stream_handler.write("Looking for food ingredients 🐀🔍🧀", True)
 
         for img in images:
             answer = ImageAnswer.parse_raw(self._analyze_image(img))
@@ -109,16 +109,18 @@ class RatBrain:
                 food_items.add(item)
 
         if len(food_items) == 0:
-            self.stream_handler.write("Sorry - couldn't find any food ingredients in the images :(", True)
+            self.stream_handler.write("Sorry - couldn't find any food ingredients in the images 😔", True)
             return
 
-        self.stream_handler.write("Found the following food items:", True)
+        self.stream_handler.write("🎉🎉 Found the following food items: 🎉🎉", True)
         ingredients = ", ".join(food_items)
         self._format_ingredients(ingredients)
 
-        self.stream_handler.write("RatatouAIng 3 recipes with these ingredients...", True)
+        self.stream_handler.write("🍳🍔 RatatouAIng 3 recipes with these ingredients... 🥕", True)
 
         recipes = self._get_recipes(ingredients)
+
+        self.stream_handler.write("Almost there! Let me format it nicely, and add some healthy touches 🥦", True)
 
         for recipe in recipes:
             recipe = recipe.json()
