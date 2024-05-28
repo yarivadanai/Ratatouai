@@ -14,6 +14,7 @@ from langchain_core.pydantic_v1 import BaseModel as PydanticBaseModel, Field as 
 from langchain_openai import ChatOpenAI
 from langsmith import traceable
 from Utils.streamlit_utils import StreamHandler
+import concurrent.futures
 
 # Standard library imports
 import Utils.prompts as prompts
@@ -122,14 +123,18 @@ class RatBrain:
 
         self.stream_handler.write("Almost there! Let me format it nicely, and add some healthy touches 🥦", True)
 
-        for recipe in recipes:
+        # Process each recipe in parallel
+        def process_recipe(recipe):
             recipe = recipe.json()
-
             missing_ingredients = self._get_missing_ingredients(ingredients, recipe)
-            
             reflection = self._get_reflections(recipe)
-            
-            self._format_final_output(recipe, missing_ingredients, reflection)
+            return recipe, missing_ingredients, reflection
+
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            recipe_futures = [executor.submit(process_recipe, recipe) for recipe in recipes]
+            for future in concurrent.futures.as_completed(recipe_futures):
+                recipe, missing_ingredients, reflection = future.result()
+                self._format_final_output(recipe, missing_ingredients, reflection)
 
         self.stream_handler.close()
 
