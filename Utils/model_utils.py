@@ -122,46 +122,15 @@ class RatBrain:
 
         for recipe in recipes:
             recipe = recipe.json()
-            """
-            missing_ingredients_prompt = self._get_prompt_template(
-                prompts.system_ingredients_gaps_prompt_template,
-                prompts.human_ingredients_gaps_prompt_template
-            )
-            reflection_prompt = self._get_prompt_template(
-                prompts.system_recipe_reflection_prompt_template,
-                prompts.human_recipe_reflection_prompt_template
-            )
-            formatted_recipe_prompt = self._get_prompt_template(
-                prompts.system_content_formatting_prompt_template,
-                prompts.human_final_formatting_prompt_template
-            )
 
-            missing_ingredients = (
-                {"recipe": RunnablePassthrough(), "ingredients_list": RunnablePassthrough()} |
-                missing_ingredients_prompt | self.reasoning_model | StrOutputParser()
-            )
-            reflection = ({"recipe": RunnablePassthrough()} | reflection_prompt | self.reasoning_model | StrOutputParser())
-            chain = (
-                {"missing_ingredients": missing_ingredients, "reflection": reflection, "recipe": RunnablePassthrough()} |
-                formatted_recipe_prompt | self.formatting_model | StrOutputParser()
-            )"""
-
-            missing_ingredients=self._execute_chain(prompts.system_ingredients_gaps_prompt_template,
-                prompts.human_ingredients_gaps_prompt_template, self.reasoning_model, StrOutputParser(),
-                {"recipe": recipe, "ingredients_list": ingredients})
+            missing_ingredients = self._get_missing_ingredients(ingredients, recipe)
             
-            reflection=self._execute_chain(prompts.system_recipe_reflection_prompt_template,
-                prompts.human_recipe_reflection_prompt_template, self.reasoning_model, StrOutputParser(),
-                {"recipe": recipe})
+            reflection = self._get_reflections(recipe)
             
-            self._execute_chain(prompts.system_content_formatting_prompt_template,
-                prompts.human_final_formatting_prompt_template, self.formatting_model, StrOutputParser(),
-                {"missing_ingredients": missing_ingredients, "reflection": reflection, "recipe": recipe}, True)
-
-
-            #self.stream_handler.stream(self._stream_chain(chain, {"recipe": recipe, "ingredients_list": ingredients}), True)
+            self._format_final_output(recipe, missing_ingredients, reflection)
 
         self.stream_handler.close()
+
 
     @traceable
     def _analyze_image(self, img: str) -> ImageAnswer:
@@ -179,7 +148,7 @@ class RatBrain:
         output_parser = JsonOutputParser(pydantic_object=ImageAnswer, diff=True)
 
         chain = chat_prompt | self.vision_model | output_parser
-        return self._handle_json(self.stream_handler.stream(self._stream_chain(chain, {})))
+        return self._handle_json(self.stream_handler.stream(self._stream_chain(chain, {}), isjason=True))
 
     @traceable
     def _format_ingredients(self, ingredients: str) -> str:
@@ -190,7 +159,7 @@ class RatBrain:
             self.formatting_model,
             StrOutputParser(),
             {"ingredients": ingredients},
-            True
+            persist = True
         )
         return result
 
@@ -202,10 +171,45 @@ class RatBrain:
             prompts.human_ingredients2recipe_prompt_template,
             self.reasoning_model,
             JsonOutputParser(pydantic_object=RecipesLists, diff=True),
-            {"ingredients_list": ingredients, "recipe_answer_outputformat": prompts.recipeslist_answer_outputformat}
+            {"ingredients_list": ingredients, "recipe_answer_outputformat": prompts.recipeslist_answer_outputformat}, 
+            isjason=True
         )
 
         return RecipesLists.parse_raw(json.dumps(recipes)).recipes_lists
+
+    @traceable
+    def _format_final_output(self, recipe: Recipe, missing_ingredients: str, reflection: str) -> str:
+        """Formats the final output and returns the result."""
+        return self._execute_chain(
+            prompts.system_content_formatting_prompt_template,
+            prompts.human_final_formatting_prompt_template,
+            self.formatting_model,
+            StrOutputParser(),
+            {"missing_ingredients": missing_ingredients, "reflection": reflection, "recipe": recipe},
+            persist = True
+        )
+   
+    @traceable
+    def _get_reflections(self, recipe: Recipe) -> str:
+        """Gets the reflections for a recipe and returns the result."""
+        return self._execute_chain(
+            prompts.system_recipe_reflection_prompt_template,
+            prompts.human_recipe_reflection_prompt_template,
+            self.reasoning_model,
+            StrOutputParser(),
+            {"recipe": recipe}
+        )
+            
+    @traceable
+    def _get_missing_ingredients(self, ingredients: str, recipe: Recipe) -> str:
+        """Gets the missing ingredients for a recipe and returns the result."""
+        return self._execute_chain(
+            prompts.system_ingredients_gaps_prompt_template,
+            prompts.human_ingredients_gaps_prompt_template,
+            self.reasoning_model,
+            StrOutputParser(),
+            {"recipe": recipe, "ingredients_list": ingredients}
+        )
 
     @traceable
     def _get_prompt_template(self, system_template: str, human_template: str) -> ChatPromptTemplate:
@@ -217,12 +221,12 @@ class RatBrain:
 
     @traceable
     def _execute_chain(self, system_template: str, human_template: str, chat: BaseLLM, output_parser: Callable,
-                       params_dict: dict, persist: bool = False) -> str:
+                       params_dict: dict, persist: bool = False, isjason: bool = False) -> str:
         """Executes a chain of operations and returns the result."""
         chat_prompt = self._get_prompt_template(system_template, human_template)
         chain = chat_prompt | chat | output_parser
 
-        return self.stream_handler.stream(self._stream_chain(chain, params_dict), persist)
+        return self.stream_handler.stream(self._stream_chain(chain, params_dict), persist, isjason)
 
     @traceable
     def reply(self, user_prompt: str) -> str:
