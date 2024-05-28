@@ -24,7 +24,7 @@ class StreamHandler:
         self.messages = session_state.messages
         self.session_state = session_state
 
-    def stream(self, streamer: Callable, persist: bool = False) -> str:
+    def stream(self, streamer: Callable, persist: bool = False, isjason=False) -> str:
         """
         Streams messages from a streamer. If persist is True, the messages are persisted.
         For jsonoutputparser objects - use a diff method and apply jsonpatch to connect the diffs
@@ -33,7 +33,7 @@ class StreamHandler:
         if persist:
             response = self.container.chat_message("assistant", avatar=AVATAR).write_stream(streamer)
             self.messages.append({"type": "text", "role": "assistant", "content": response})
-        else:
+        elif isjason is True:
             initial_json = {}
             draft = self.container.empty()
             for diff in streamer:
@@ -41,6 +41,11 @@ class StreamHandler:
                     initial_json = jsonpatch.apply_patch(initial_json, diff)
                     draft.write(initial_json)
                     response = initial_json
+        else:
+            #draft = self.container.empty()
+            for message in streamer:
+                response += message
+                #draft.write({response})
             
         return response
 
