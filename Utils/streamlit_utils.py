@@ -64,8 +64,8 @@ def handle_image(img: Image) -> str:
     """
     # Open the image and resize it
     image = Image.open(img)
-    ratio = max(image.width, image.height) // MAX_IMAGE_SIZE
-    image = image.resize((image.width // ratio, image.height // ratio))
+    ratio = MAX_IMAGE_SIZE / max(image.width, image.height) 
+    image = image.resize((int(image.width * ratio), int(image.height * ratio)))
 
     # Convert the image to base64
     buffered = io.BytesIO()
