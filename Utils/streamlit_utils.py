@@ -55,7 +55,8 @@ class StreamHandler:
             self.container.chat_message("assistant", avatar=AVATAR).write(output)
             self.messages.append({"type": "text", "role": "assistant", "content": output})
         else:
-            self.draft.write(output)
+            draft = self.container.empty()
+            draft.write(output)
 
     def close(self):
         """Closes the stream."""

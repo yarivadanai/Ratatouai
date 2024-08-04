@@ -19,11 +19,19 @@ import concurrent.futures
 # Standard library imports
 import Utils.prompts as prompts
 
-# Constants
-LLAMA3_MODEL = "llama3"
-CLAUDE3_OPUS_MODEL = "claude-3-opus-20240229"
-GPT4O_MODEL = "gpt-4o"
+DEBUG_USE_MOCK_INGREDIENS=False
+USE_RECIPES_DB = False  
 
+
+# Constants
+LLAMA3_MODEL = "llama3.1"
+CLAUDE_MODEL = "claude-3.5-sonnet"
+GPT4O_MODEL = "gpt-4o"
+GEMMA_MODEL = "gemma2"
+
+SUPPORTED_MODELS = {"vision" : [GPT4O_MODEL, CLAUDE_MODEL],
+           "reasoning" : [LLAMA3_MODEL, CLAUDE_MODEL, GPT4O_MODEL, GEMMA_MODEL],
+           "formatting" : [LLAMA3_MODEL, CLAUDE_MODEL, GPT4O_MODEL, GEMMA_MODEL]}
 
 class ImageAnswer(BaseModel):
     """Model for image analysis results."""
@@ -57,12 +65,34 @@ class Models:
     def __init__(self, vision_model: Tuple[str, str], reasoning_model: Tuple[str, str], formatting_model: Tuple[str, str]):
         models = {
             GPT4O_MODEL: ChatOpenAI,
-            CLAUDE3_OPUS_MODEL: ChatAnthropic,
-            LLAMA3_MODEL: Ollama
+            CLAUDE_MODEL: ChatAnthropic,
+            LLAMA3_MODEL: Ollama,
+            GEMMA_MODEL: Ollama,
         }
-        self.vision = models[vision_model[0]](temperature=0, model_name=vision_model[0], api_key=vision_model[1])
-        self.reasoning = models[reasoning_model[0]](temperature=0, model_name=reasoning_model[0], api_key=reasoning_model[1])
-        self.formatting = models[formatting_model[0]](temperature=0, model_name=formatting_model[0], api_key=formatting_model[1])
+        self.vision = models[vision_model[0]](
+            temperature=0.2,
+            model=vision_model[0],
+            api_key=vision_model[1]
+        ) if vision_model[1] != "" else models[vision_model[0]](
+            temperature=0,
+            model=vision_model[0]
+        )
+        self.reasoning = models[reasoning_model[0]](
+            temperature=0.2,
+            model=reasoning_model[0],
+            api_key=reasoning_model[1]
+        ) if reasoning_model[1] != "" else models[reasoning_model[0]](
+            temperature=0,
+            model=reasoning_model[0]
+        )
+        self.formatting = models[formatting_model[0]](
+            temperature=0.2,
+            model=formatting_model[0],
+            api_key=formatting_model[1]
+        ) if formatting_model[1]  != "" else models[formatting_model[0]](
+            temperature=0,
+            model=formatting_model[0]
+        )
 
     def verify_api_keys(self) -> bool:
         """Verifies the API keys and returns True if they are valid."""
@@ -91,37 +121,54 @@ class Models:
 class RatBrain:
     """Class for the RatatouAI brain."""
 
-    def __init__(self, stream_handler: StreamHandler, model: Models):
+    def __init__(self, app_config: StreamHandler, model: Models):
         self.vision_model = model.get_vision_model()
         self.reasoning_model = model.get_reasoning_model()
         self.formatting_model = model.get_formatting_model()
-        self.stream_handler = stream_handler
+        self.app_configurator = app_config
 
     @traceable
     def run_full_chain(self, images: List[str]) -> None:
         """Runs the full chain of image analysis and chat models."""
         food_items = set()
 
-        self.stream_handler.write("Looking for food ingredients 🐀🔍🧀", True)
+        if DEBUG_USE_MOCK_INGREDIENS:
+            self.app_configurator.write("Mocking up food ingredients 🐀🔍🧀", True)
+            food_items = {'Eggs', 'Yogurt', 'Chocolate bunny', 'Yogurt drink', 'Cheese', 'Sliced meat',
+                          'Olives', 'Butter', 'Hummus', 'Cheese slices', 'Sliced cheese', 'Soup',
+                          'Potatoes', 'Carrots', 'Green leafy vegetables', 'mushrooms', 'citrus fruits',
+                          'eggs', 'tomatoes', 'bread rolls', 'raw chicken drumsticks', 'sauce or broth',
+                          'packaged frozen or chilled food', 'strawberries', 'cucumbers', 'red cabbage',
+                          'tomato', 'red currants', 'yellow bell peppers', 'green chili peppers',
+                          'lettuce', 'cherry tomatoes', 'romaine lettuce', 'mixed greens', 'fennel bulb',
+                          'milk', 'watermelon', 'milk cartons', 'green onions'}
 
-        for img in images:
-            answer = ImageAnswer.parse_raw(self._analyze_image(img))
-            for item in answer.answer:
-                food_items.add(item)
+        else:
 
-        if len(food_items) == 0:
-            self.stream_handler.write("Sorry - couldn't find any food ingredients in the images 😔", True)
-            return
+            self.app_configurator.write("Looking for food ingredients 🐀🔍🧀", True)
 
-        self.stream_handler.write("🎉🎉 Found the following food items: 🎉🎉", True)
+            for img in images:
+                answer = ImageAnswer.parse_raw(self._analyze_image(img))
+                for item in answer.answer:
+                    food_items.add(item)
+
+            if len(food_items) == 0:
+                self.app_configurator.write("Sorry - couldn't find any food ingredients in the images 😔", True)
+                return
+
+        self.app_configurator.write("🎉🎉 Found the following food items: 🎉🎉", True)
         ingredients = ", ".join(food_items)
         self._format_ingredients(ingredients)
 
-        self.stream_handler.write("🍳🍔 RatatouAIng 3 recipes with these ingredients... 🥕", True)
 
-        recipes = self._get_recipes(ingredients)
+        if self.app_configurator.session_state.use_recipes_db:
+            recipes = self._get_recipes_from_db(ingredients)
+        else:
+            self.app_configurator.write("🍳🍔 RatatouAIng 3 recipes with these ingredients... 🥕", True)
+            recipes = self._get_recipes_from_model(ingredients)
+        
 
-        self.stream_handler.write("Almost there! Let me format it nicely, and add some healthy touches 🥦", True)
+        self.app_configurator.write("Almost there! Let me format it nicely, and add some healthy touches 🥦", True)
 
         # Process each recipe in parallel
         def process_recipe(recipe):
@@ -136,7 +183,7 @@ class RatBrain:
                 recipe, missing_ingredients, reflection = future.result()
                 self._format_final_output(recipe, missing_ingredients, reflection)
 
-        self.stream_handler.close()
+        self.app_configurator.close()
 
 
     @traceable
@@ -155,7 +202,7 @@ class RatBrain:
         output_parser = JsonOutputParser(pydantic_object=ImageAnswer, diff=True)
 
         chain = chat_prompt | self.vision_model | output_parser
-        return self._handle_json(self.stream_handler.stream(self._stream_chain(chain, {}), isjason=True))
+        return self._handle_json(self.app_configurator.stream(self._stream_chain(chain, {}), isjason=True))
 
     @traceable
     def _format_ingredients(self, ingredients: str) -> str:
@@ -170,8 +217,9 @@ class RatBrain:
         )
         return result
 
+   
     @traceable
-    def _get_recipes(self, ingredients: str) -> List[Recipe]:
+    def _get_recipes_from_model(self, ingredients: str) -> List[Recipe]:
         """Gets recipes based on the ingredients and returns a list of Recipe objects."""
         recipes = self._execute_chain(
             prompts.system_ingredients2recipe_prompt_template,
@@ -183,6 +231,63 @@ class RatBrain:
         )
 
         return RecipesLists.parse_raw(json.dumps(recipes)).recipes_lists
+    
+        
+    @traceable
+    def _get_recipe_titles(self, ingredients: str) -> List[str]:
+        """Gets recipes based on the ingredients and returns a list of Recipe titles."""
+        recipes = self._execute_chain(
+            prompts.system_ingredients2recipe_prompt_template,
+            prompts.human_ingredients2recipetitles_prompt_template,
+            self.reasoning_model,
+            JsonOutputParser(pydantic_object=RecipesLists, diff=True),
+            {"ingredients_list": ingredients, "recipe_answer_outputformat": prompts.recipeslist_answer_outputformat}, 
+            isjason=True
+        )
+        self.app_configurator.write(recipes, True)
+        return recipes
+
+
+    @traceable
+    def _get_recipes_from_db(self, ingredients: str) -> List[Recipe]:
+        import requests
+       
+        recipe_titles=self._get_recipe_titles(ingredients)
+        recipes=[]
+
+        excludeCuisine = self.app_configurator.session_state.excludeCuisine
+        diet= self.app_configurator.session_state.dietary_preferences
+        intolerances   = self.app_configurator.session_state.intolerances
+
+        url = "" #TODO: Add the URL of the recipe database
+
+        headers = { } #TODO: Add the headers for the recipe database
+
+        for recipe in recipe_titles:
+            querystring = {"query":recipe['title'],
+                           "excludeCuisine":excludeCuisine,
+                           "diet":diet,
+                           "intolerances":intolerances,
+                           "includeIngredients":ingredients,
+                           #"excludeIngredients":"eggs",
+                           "instructionsRequired":"true",
+                           "fillIngredients":"true",
+                           "addRecipeInformation":"true",
+                           "addRecipeInstructions":"true",
+                           "addRecipeNutrition":"true",
+                           "offset":"0",
+                           "number":"10",
+                           "limitLicense":"false",
+                           "ranking":"2"}
+            self.app_configurator.write(querystring, False)
+
+            response = requests.get(url, headers=headers, params=querystring)
+            recipes.append(response.json())
+
+            self.app_configurator.write(response.json(), True)
+
+        return recipes
+
 
     @traceable
     def _format_final_output(self, recipe: Recipe, missing_ingredients: str, reflection: str) -> str:
@@ -233,19 +338,19 @@ class RatBrain:
         chat_prompt = self._get_prompt_template(system_template, human_template)
         chain = chat_prompt | chat | output_parser
 
-        return self.stream_handler.stream(self._stream_chain(chain, params_dict), persist, isjason)
+        return self.app_configurator.stream(self._stream_chain(chain, params_dict), persist, isjason)
 
     @traceable
     def reply(self, user_prompt: str) -> str:
         """Replies to a user prompt and returns the result. Includes the last 10~ messages in the conversation."""
         chat = self.reasoning_model
-        messages = [(m["role"], m["content"]) for m in self.stream_handler.messages if m["type"] == "text"][:-1]
+        messages = [(m["role"], m["content"]) for m in self.app_configurator.messages if m["type"] == "text"][:-1]
         messages.insert(0,("system", prompts.system_chitchat_prompt_template))
         messages.append(("user", user_prompt))
 
         prompt_template = ChatPromptTemplate.from_messages(messages)
         chain = prompt_template | chat | StrOutputParser()
-        return self.stream_handler.stream(self._stream_chain(chain, {}), True)
+        return self.app_configurator.stream(self._stream_chain(chain, {}), True)
 
     @traceable
     def _stream_chain(self, chain: Callable, params_dict: dict) -> Generator:

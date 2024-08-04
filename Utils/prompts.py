@@ -234,6 +234,30 @@ Here is the JSON instance formatted to conform to the provided JSON schema:
 ```
 """
 
+human_ingredients2recipetitles_prompt_template = """
+
+Here is your task:
+
+Research and find 10 recipes on the internet that can be made using only the ingredients from
+the provided ingredients list below. Do not make up recipes that don't exist.
+
+For each suggested recipe, provide its name and a short description.
+
+Use the scratchpad below to brainstorm, research, and organize your information before presenting your final answer as a JSON object - a list of tuples: title and description.
+
+### Scratchpad
+- Brainstorm potential recipes using the given ingredients.
+- Research existing recipes online and evaluate their suitability based on the ingredient list.
+- Organize the information for each recipe.
+
+### Ingredients List
+```
+<ingredients>
+{ingredients_list}
+</ingredients>
+```
+"""
+
 ################################
 ### Recipe ingredients gaps  ###
 ################################
