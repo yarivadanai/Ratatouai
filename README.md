@@ -22,6 +22,7 @@ $ git clone https://github.com/username/projectname.git
 $ cd projectname
 
 # Install dependencies
+$ pip install poetry
 $ poetry install
 
 # Install git pre-commit hooks
