@@ -85,7 +85,6 @@ pydantic_core==2.23.2
 pydeck==0.9.1
 pyee==11.1.0
 Pygments==2.18.0
-pyobjc-core==10.3.1
 pyobjc-framework-Cocoa==10.3.1
 PySocks==1.7.1
 python-dateutil==2.9.0.post0
