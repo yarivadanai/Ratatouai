@@ -23,7 +23,7 @@ import Utils.prompts as prompts
 DEBUG_USE_MOCK_INGREDIENS = False
 DEBUG_USE_MOCK_RECIPES = False
 USE_RECIPES_DB = False
-
+RUN_LOCALLY = False
 # Constants
 LLAMA3_MODEL = "llama3.2"
 CLAUDE_MODEL = "claude-3.5-sonnet"
@@ -138,7 +138,10 @@ class RatBrain:
         self.formatting_model = model.get_formatting_model()
         self.tavili = TavilyClient(api_key=app_config.session_state.tavili)
         self.app_configurator = app_config
-        self.local_model = Ollama(model=LLAMA3_MODEL, temperature=0.2)
+        if RUN_LOCALLY:
+            self.local_model = Ollama(model=LLAMA3_MODEL, temperature=0.2)
+        else:
+            self.local_model = self.formatting_model
 
     @traceable
     def get_ingredients_from_images(self, images: List[str]) -> List[str]:
