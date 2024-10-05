@@ -183,8 +183,7 @@ def run():
     with container:
         st.markdown("<p style='text-align: center;'><img src='data:image/png;base64,{}'>\
                     </p>".format(base64.b64encode(open(LOGO_PATH, 'rb').read()).decode()), unsafe_allow_html=True)
-        st.markdown("<h1 style='text-align: center;'>Welcome to RatatouAI!</h1>", unsafe_allow_html=True)
-
+        st.markdown("<h1 style='text-align: center;'>Welcome to RatatouAI!</h1>", unsafe_allow_html=True) 
     with st.sidebar:
         setup_models_and_db()
 
@@ -195,10 +194,18 @@ def run():
 
     if st.session_state.models is None:
         st.info("Please select the models and enter your API keys in the side bar fields.")
-        return   
+        return  
 
     display_messages(container)
 
+    stream_handler = StreamHandler(container, st.session_state)
+    rat_brain = mu.RatBrain(stream_handler, st.session_state.models)
+    
+    input_container = st.container()
+    user_prompt = input_container.chat_input("Say something")
+
+    if user_prompt:
+        handle_user_prompt(container, user_prompt, rat_brain)
     with st.container(border=True):
         st.session_state.ingredients = st_tags(
             label='**Please add your food items. You can add items directly, or use the image and camera uploaders below.**',
@@ -228,20 +235,15 @@ def run():
                 add_uploaded_image(container, images, img_file_buffer, page_width, page_height)
                 st.session_state['camera_input_key'] += 1
 
-    process_images(images)
 
-    input_container = st.container()
-    user_prompt = input_container.chat_input("Say something")
 
-    if user_prompt:
-        handle_user_prompt(container, user_prompt)
-    
+    process_images(images, container, rat_brain)  
     feeling_lucky = input_container.button("Feeling Lucky - Suggest me 10 recipes!", disabled=len(st.session_state.ingredients) == 0)
 
     if feeling_lucky:
-        fetch_recipes()
+        fetch_recipes(rat_brain)
 
-    review_recipes()
+    review_recipes(rat_brain)
 
     if st.session_state.recipes_recipes_data is not None:
         with st.spinner("Fetching the recipes information..."):
@@ -256,11 +258,8 @@ def display_messages(container):
             else:
                 st.markdown(message["content"])
 
-def process_images(images):
+def process_images(images, container, rat_brain):
     """Processes the uploaded images and extracts ingredients."""
-    stream_handler = StreamHandler(container, st.session_state)
-    rat_brain = mu.RatBrain(stream_handler, st.session_state.models)
-
     semaphore = threading.Semaphore(1)
     if len(images) > 0:
         semaphore.acquire()
@@ -274,7 +273,7 @@ def process_images(images):
         finally:
             semaphore.release()
 
-def handle_user_prompt(container, user_prompt):
+def handle_user_prompt(container, user_prompt, rat_brain):
     """Handles the user prompt and generates a response."""
     st.session_state.messages.append({"type": "text", "role": "user", "content": user_prompt})
     with container.chat_message("user"):
@@ -285,7 +284,7 @@ def handle_user_prompt(container, user_prompt):
         except Exception as e:
             st.error(f"Error processing user prompt: {e}")
 
-def fetch_recipes():
+def fetch_recipes(rat_brain):
     """Fetches recipes based on the ingredients."""
     with st.spinner("Getting the list of recipes for you..."):
         try:
@@ -301,7 +300,7 @@ def fetch_recipes():
         except Exception as e:
             st.error(f"Error fetching recipes: {e}")
 
-def review_recipes():
+def review_recipes(rat_brain):
     """Displays the recipes for review and selection."""
     with st.expander("Review the recipes and select the ones you want to make", expanded=st.session_state.expander_open, icon=":material/checklist:") as expander:
 

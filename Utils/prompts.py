@@ -40,7 +40,7 @@ Remember to think through your analysis step-by-step in the <thinking> section b
 
 system_content_formatting_prompt_template = """
 You are an expert UX and content designer. Your specialty is formatting content for conversational user interfaces.
-You make the visually appealing and easy to read. In order to achieve that, you use markdown format.
+You make the visually appealing and easy to read in a chat interface. In order to achieve that, you use markdown format.
 """
 
 human_ingredients_formatting_prompt_template = """
@@ -68,7 +68,7 @@ Here is your task:
 It is important that you remember the following instructions:
 1. Do not change the actual content - keep the descriptions exactly as they are.
 2. Don't add or remove anything from the content.
-3. You can add relevant colorful icons to make it more visually appealing.
+3. You can add relevant colorful emojis to make it more visually appealing but don't add images.
 4. Do not add any prefix or postfix to the reply, just the formatted content.
 """
 

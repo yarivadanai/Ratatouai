@@ -24,6 +24,7 @@ DEBUG_USE_MOCK_INGREDIENS = False
 DEBUG_USE_MOCK_RECIPES = False
 USE_RECIPES_DB = False
 RUN_LOCALLY = False
+
 # Constants
 LLAMA3_MODEL = "llama3.2"
 CLAUDE_MODEL = "claude-3.5-sonnet"
@@ -174,7 +175,7 @@ class RatBrain:
 
         ingredients = ", ".join(food_items)
         formatted_ingredients = self._format_ingredients(ingredients)
-        self.app_configurator.write(f"🎉🎉 Found and added the following food items:\n {formatted_ingredients} ", True)
+        self.app_configurator.write(f"🎉🎉 Found and added the following food items:\n\n {formatted_ingredients}", True)
 
         return food_items
 
@@ -229,6 +230,7 @@ class RatBrain:
             formatted_output = self._format_output(recipe)
             self.app_configurator.write(formatted_output, True)
 
+        self.app_configurator.write("I added the recipe titles to the table below ⬇️. You can select recipes from the table, and then choose to either get full details or delete 🤯", True)
         return recipes_titles
 
     @traceable
@@ -251,11 +253,26 @@ class RatBrain:
 
         return output["recipes_lists"]
 
-    def get_recipes_from_titles(self, recipes_titles: dict):
-        """Searches for recipes using the Tavili search API and returns the results as markdown."""
+    def get_recipes_from_titles(self, recipes_titles: dict) -> None:
+        """
+        Searches for recipes using the Tavili search API and returns the results as markdown.
+
+        Args:
+            recipes_titles (dict): A dictionary containing recipe titles, descriptions, and ingredients.
+
+        Returns:
+            None
+        """
+        self.app_configurator.write(
+            "I will now look for online recipes for the items you selected. I will show you different options for each recipe, so you have options to choose from 😇. Click on the titles to open the recipe.",
+            True
+        )
         recipes = []
-        for (title, description, ingredients) in recipes_titles:
-            query = f"Search for recipes that best match the following description: {title} - {description}, and that mostly contain the following ingredients: {ingredients}"
+        for title, description, ingredients in recipes_titles:
+            query = (
+                f"Search for recipes that best match the following description: {title} - {description}, "
+                f"and that mostly contain the following ingredients: {ingredients}"
+            )
 
             try:
                 response = self.tavili.search(query, include_raw_content=True)
@@ -265,7 +282,9 @@ class RatBrain:
                     formatted_results = f"### [{result['title']}]({result['url']})\n\n"
                     formatted_results += f"{result['content']}\n\n"
                     raw_content = result['raw_content']
-                    metadata = self.local_model.invoke(f"Your task is to extract the ingredients, instructions, and nutrition data for {title} from the recipe web page below. Return them as formatted markdown. The web page content: {raw_content}")
+                    metadata = self.local_model.invoke(
+                        f"Your task is to extract the ingredients, instructions, and nutrition data for {title} from the recipe web page below. Return them as formatted markdown. The web page content: {raw_content}"
+                    )
                     formatted_results += f"{metadata}\n\n"
                     self.app_configurator.write(formatted_results, True)
             except Exception as e:
