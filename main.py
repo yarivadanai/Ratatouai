@@ -37,9 +37,13 @@ def get_window_dimensions() -> Tuple[int, int]:
     Returns:
         Tuple[int, int]: The height and width of the window.
     """
-    page_height = streamlit_js_eval(js_expressions='window.outerHeight', key='HEIGHT', want_output=True) or 800
-    page_width = streamlit_js_eval(js_expressions='window.innerWidth', key='WIDTH', want_output=True) or 1000
-    return int(page_height), int(page_width)
+    try:
+        page_height = streamlit_js_eval(js_expressions='window.outerHeight', key='HEIGHT', want_output=True) or 800
+        page_width = streamlit_js_eval(js_expressions='window.innerWidth', key='WIDTH', want_output=True) or 1000
+        return int(page_height), int(page_width)
+    except Exception as e:
+        st.error(f"Error getting window dimensions: {e}")
+        return 800, 1000
 
 def submit_models():
     """
@@ -113,26 +117,20 @@ def add_uploaded_image(container: st.container, images: List[str], img: Any, pag
         page_width (int): The width of the page.
         page_height (int): The height of the page.
     """
-    img_str = handle_image(img)
-    images.append(img_str)
-    st.session_state.messages.append({"type": "image", "role": "user", "content": img_str})
-    with container.chat_message("user"):
-        image = Image.open(img)
-        image = resize_image(image, page_width, page_height)
-        st.image(image)
-
-def run():
-    """
-    Main function to run the application.
-    """
-    hide_default_format = """
-       <style>
-       #MainMenu {visibility: hidden; }
-       footer {visibility: hidden;}
-       </style>
-       """
-
-    # Initialize session state variables
+    try:
+        img_str = handle_image(img)
+        images.append(img_str)
+        st.session_state.messages.append({"type": "image", "role": "user", "content": img_str})
+        with container.chat_message("user"):
+            image = Image.open(img)
+            image = resize_image(image, page_width, page_height)
+            st.image(image)
+    except Exception as e:
+        st.error(f"Error processing uploaded image: {e}")
+    
+    
+def initialize_session_state():
+    """Initializes the session state variables."""
     if 'messages' not in st.session_state:
         st.session_state.messages = deque(maxlen=50)
     if 'file_uploader_key' not in st.session_state:
@@ -164,6 +162,20 @@ def run():
     if 'expander_open' not in st.session_state:
         st.session_state.expander_open = True
 
+def run():
+    """
+    Main function to run the application.
+    """
+    hide_default_format = """
+       <style>
+       #MainMenu {visibility: hidden; }
+       footer {visibility: hidden;}
+       </style>
+       """
+    st.markdown(hide_default_format, unsafe_allow_html=True)
+
+    initialize_session_state()
+
     page_height, page_width = get_window_dimensions()
     container_height = int(page_height * IMAGE_HEIGHT_RATIO)
     container = st.container(border=True, height=container_height)
@@ -185,13 +197,8 @@ def run():
         st.info("Please select the models and enter your API keys in the side bar fields.")
         return   
 
-    for message in st.session_state.messages:
-        with container.chat_message(message["role"], avatar=AVATAR if message["role"] == "assistant" else None):
-            if message["type"] == "image":
-                st.image(Image.open(io.BytesIO(base64.b64decode(message["content"]))))
-            else:
-                st.markdown(message["content"])
-    
+    display_messages(container)
+
     with st.container(border=True):
         st.session_state.ingredients = st_tags(
             label='**Please add your food items. You can add items directly, or use the image and camera uploaders below.**',
@@ -221,32 +228,67 @@ def run():
                 add_uploaded_image(container, images, img_file_buffer, page_width, page_height)
                 st.session_state['camera_input_key'] += 1
 
+    process_images(images)
+
+    input_container = st.container()
+    user_prompt = input_container.chat_input("Say something")
+
+    if user_prompt:
+        handle_user_prompt(container, user_prompt)
+    
+    feeling_lucky = input_container.button("Feeling Lucky - Suggest me 10 recipes!", disabled=len(st.session_state.ingredients) == 0)
+
+    if feeling_lucky:
+        fetch_recipes()
+
+    review_recipes()
+
+    if st.session_state.recipes_recipes_data is not None:
+        with st.spinner("Fetching the recipes information..."):
+            st.json(st.session_state.recipes_recipes_data)
+
+def display_messages(container):
+    """Displays the messages in the session state."""
+    for message in st.session_state.messages:
+        with container.chat_message(message["role"], avatar=AVATAR if message["role"] == "assistant" else None):
+            if message["type"] == "image":
+                st.image(Image.open(io.BytesIO(base64.b64decode(message["content"]))))
+            else:
+                st.markdown(message["content"])
+
+def process_images(images):
+    """Processes the uploaded images and extracts ingredients."""
     stream_handler = StreamHandler(container, st.session_state)
     rat_brain = mu.RatBrain(stream_handler, st.session_state.models)
 
     semaphore = threading.Semaphore(1)
     if len(images) > 0:
         semaphore.acquire()
-        ingredients = rat_brain.get_ingredients_from_images(images)
-        st.session_state.ingredients.extend(ingredients)
-        st.session_state.tags_key += 1
-        st.rerun()
-        semaphore.release()
+        try:
+            ingredients = rat_brain.get_ingredients_from_images(images)
+            st.session_state.ingredients.extend(ingredients)
+            st.session_state.tags_key += 1
+            st.rerun()
+        except Exception as e:
+            st.error(f"Error processing images: {e}")
+        finally:
+            semaphore.release()
 
-    input_container = st.container()
-    user_prompt = input_container.chat_input("Say something")
-
-    if user_prompt:
-        st.session_state.messages.append({"type": "text", "role": "user", "content": user_prompt})
-        with container.chat_message("user"):
-            st.write(user_prompt)
-        with st.spinner("Thinking..."):
+def handle_user_prompt(container, user_prompt):
+    """Handles the user prompt and generates a response."""
+    st.session_state.messages.append({"type": "text", "role": "user", "content": user_prompt})
+    with container.chat_message("user"):
+        st.write(user_prompt)
+    with st.spinner("Thinking..."):
+        try:
             rat_brain.reply(user_prompt)
-    
-    feeling_lucky = input_container.button("Feeling Lucky - Suggest me 10 recipes!", disabled=len(st.session_state.ingredients) == 0)
+        except Exception as e:
+            st.error(f"Error processing user prompt: {e}")
 
-    if feeling_lucky:
-        with st.spinner("Getting the list of recipes for you..."):
+def fetch_recipes():
+    """Fetches recipes based on the ingredients."""
+    with st.spinner("Getting the list of recipes for you..."):
+        try:
             recipes = rat_brain.get_recipes_from_ingredients(st.session_state.ingredients)
 
             for recipe in recipes:
@@ -256,12 +298,14 @@ def run():
                         'ingredients': recipe['ingredients'],
                         'checked': False
                     }
+        except Exception as e:
+            st.error(f"Error fetching recipes: {e}")
 
-
-
+def review_recipes():
+    """Displays the recipes for review and selection."""
     with st.expander("Review the recipes and select the ones you want to make", expanded=st.session_state.expander_open, icon=":material/checklist:") as expander:
 
-        col1, col2, col3 = st.columns([1, 1, 10])
+        col1, col2, col3 = st.columns([1, 1, 8])
 
         with col1:
             if st.button("📜", help="Submit selected recipes"):
@@ -272,7 +316,10 @@ def run():
                 ]
                 if len(st.session_state.requested_recipes) > 0:
                     with st.spinner():
-                        st.session_state.recipes_recipes_data = rat_brain.get_recipes_from_titles(st.session_state.requested_recipes)
+                        try:
+                            st.session_state.recipes_recipes_data = rat_brain.get_recipes_from_titles(st.session_state.requested_recipes)
+                        except Exception as e:
+                            st.error(f"Error fetching detailed recipes: {e}")
 
         with col2:
             if st.button("🗑️", help="Delete selected recipes"):
@@ -290,12 +337,6 @@ def run():
                 key=f"recipe_{title}"
             )
             st.session_state.recipes_candidate_list[title]['checked'] = checked
-
-    if st.session_state.recipes_recipes_data is not None:
-        with st.spinner("Fetching the recipes information..."):
-            st.json(st.session_state.recipes_recipes_data)
-
-
 
 
 if __name__ == "__main__":

@@ -54,7 +54,7 @@ Here is your task:
 It is important that you remember the following instructions:
 1. Do not change the actual content - keep the descriptions exactly as they are.
 2. Don't add or remove anything from the list.
-3. You can add relevant colorful icons to make it more visually appealing.
+3. You can add relevant colorful emojis to make it more visually appealing but don't add images.
 4. Do not add any prefix or postfix to the reply, just the formatted list.
 """
 
@@ -64,13 +64,12 @@ Here is a given output: {output}.
 Here is your task:
 1. Reformat the response in nicely stylized GitHub markdown format.
 2. Make the formatting concise and suitable for a chat interface.
-3. Add tables where it saves space.
 
 It is important that you remember the following instructions:
 1. Do not change the actual content - keep the descriptions exactly as they are.
-2. Don't add or remove anything from the list.
+2. Don't add or remove anything from the content.
 3. You can add relevant colorful icons to make it more visually appealing.
-4. Do not add any prefix or postfix to the reply, just the formatted list.
+4. Do not add any prefix or postfix to the reply, just the formatted content.
 """
 
 #############################
