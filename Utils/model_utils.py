@@ -23,7 +23,6 @@ import Utils.prompts as prompts
 DEBUG_USE_MOCK_INGREDIENS = False
 DEBUG_USE_MOCK_RECIPES = False
 USE_RECIPES_DB = False
-RUN_LOCALLY = False
 
 # Constants
 LLAMA3_MODEL = "llama3.2"
@@ -139,10 +138,6 @@ class RatBrain:
         self.formatting_model = model.get_formatting_model()
         self.tavili = TavilyClient(api_key=app_config.session_state.tavili)
         self.app_configurator = app_config
-        if RUN_LOCALLY:
-            self.local_model = Ollama(model=LLAMA3_MODEL, temperature=0.2)
-        else:
-            self.local_model = self.formatting_model
 
     @traceable
     def get_ingredients_from_images(self, images: List[str]) -> List[str]:
@@ -230,7 +225,7 @@ class RatBrain:
             formatted_output = self._format_output(recipe)
             self.app_configurator.write(formatted_output, True)
 
-        self.app_configurator.write("I added the recipe titles to the table below ⬇️. You can select recipes from the table, and then choose to either get full details or delete 🤯", True)
+        self.app_configurator.write("I added the recipe titles to the table below ⬇️⬇️⬇️.  You can select recipes from the table, and then choose to either get full details or delete 🤯", True)
         return recipes_titles
 
     @traceable
@@ -282,143 +277,23 @@ class RatBrain:
                     formatted_results = f"### [{result['title']}]({result['url']})\n\n"
                     formatted_results += f"{result['content']}\n\n"
                     raw_content = result['raw_content']
-                    metadata = self.local_model.invoke(
-                        f"Your task is to extract the ingredients, instructions, and nutrition data for {title} from the recipe web page below. Return them as formatted markdown. The web page content: {raw_content}"
-                    )
-                    formatted_results += f"{metadata}\n\n"
+                    formatted_results += self._format_web_recipe(title, raw_content)
                     self.app_configurator.write(formatted_results, True)
             except Exception as e:
                 logging.error(f"Error searching for recipes with title {title}: {e}", exc_info=True)
 
     @traceable
-    def get_recipes_from_titles_(self, recipes_titles: str):
-        """Gets recipes from titles with mock data."""
-        if DEBUG_USE_MOCK_RECIPES:
-            recipes = """
-            {
-                "recipes_lists": [
-                    {
-                        "title": "Strawberry Salad",
-                        "description": "A simple salad made with strawberries, lettuce, and fennel bulb.",
-                        "ingredients": [
-                            "1 cup strawberries, sliced",
-                            "2 cups lettuce, chopped",
-                            "1/2 fennel bulb, thinly sliced"
-                        ],
-                        "instructions": [
-                            "Wash and slice the strawberries.",
-                            "Chop the lettuce into bite-sized pieces.",
-                            "Thinly slice the fennel bulb.",
-                            "Combine all ingredients in a large bowl and toss gently.",
-                            "Serve immediately."
-                        ]
-                    },
-                    {
-                        "title": "Veggie Wrap",
-                        "description": "A wrap filled with hummus, cherry tomatoes, green onions, and cheese slices.",
-                        "ingredients": [
-                            "1 whole wheat wrap",
-                            "2 tablespoons hummus",
-                            "1/4 cup cherry tomatoes, halved",
-                            "2 green onions, chopped",
-                            "2 slices cheese"
-                        ],
-                        "instructions": [
-                            "Spread hummus evenly over the whole wheat wrap.",
-                            "Add halved cherry tomatoes and chopped green onions.",
-                            "Place the cheese slices on top.",
-                            "Roll the wrap tightly and slice in half.",
-                            "Serve immediately."
-                        ]
-                    },
-                    {
-                        "title": "Watermelon and Cheese Salad",
-                        "description": "A refreshing salad made with watermelon, cheese slices, and lettuce.",
-                        "ingredients": [
-                            "2 cups watermelon, cubed",
-                            "2 cups lettuce, chopped",
-                            "4 slices cheese, cut into small pieces"
-                        ],
-                        "instructions": [
-                            "Cube the watermelon into bite-sized pieces.",
-                            "Chop the lettuce and cut the cheese slices into small pieces.",
-                            "In a large bowl, combine the watermelon, lettuce, and cheese.",
-                            "Toss gently to combine.",
-                            "Serve chilled."
-                        ]
-                    }
-                ]
-            }
-            """
-            return recipes
-
-    @traceable
-    def run_full_chain(self, images: List[str]) -> None:
-        """Runs the full chain of image analysis and chat models."""
-        food_items = set()
-
-        if DEBUG_USE_MOCK_INGREDIENS:
-            self.app_configurator.write("Mocking up food ingredients 🐀🔍🧀", True)
-            food_items = {'Eggs', 'Yogurt', 'Chocolate bunny', 'Yogurt drink', 'Cheese', 'Sliced meat',
-                          'Olives', 'Butter', 'Hummus', 'Cheese slices', 'Sliced cheese', 'Soup',
-                          'Potatoes', 'Carrots', 'Green leafy vegetables', 'mushrooms', 'citrus fruits',
-                          'eggs', 'tomatoes', 'bread rolls', 'raw chicken drumsticks', 'sauce or broth',
-                          'packaged frozen or chilled food', 'strawberries', 'cucumbers', 'red cabbage',
-                          'tomato', 'red currants', 'yellow bell peppers', 'green chili peppers',
-                          'lettuce', 'cherry tomatoes', 'romaine lettuce', 'mixed greens', 'fennel bulb',
-                          'milk', 'watermelon', 'milk cartons', 'green onions'}
-        else:
-            self.app_configurator.write("Looking for food ingredients 🐀🔍🧀", True)
-
-            for img in images:
-                try:
-                    answer = ImageAnswer.parse_raw(self._analyze_image(img))
-                    for item in answer.answer:
-                        food_items.add(item)
-                except Exception as e:
-                    logging.error(f"Error analyzing image {img}: {e}", exc_info=True)
-
-            if len(food_items) == 0:
-                self.app_configurator.write("Sorry - couldn't find any food ingredients in the images 😔", True)
-                return
-
-        self.app_configurator.write("🎉🎉 Found the following food items: 🎉🎉", True)
-        ingredients = ", ".join(food_items)
-        self._format_ingredients(ingredients)
-
-        self.app_configurator.write("Getting a list of candidate recipes...", True)
-        recipes_titles = self._get_recipe_titles(ingredients)
-        self.app_configurator.write("🎉🎉 Found the following recipes: 🎉🎉", True)
-        self.app_configurator.write(recipes_titles, True)
-
-        self.app_configurator.close()
-        return
-
-        if self.app_configurator.session_state.use_recipes_db:
-            recipes = self._get_recipes_from_db(ingredients)
-        else:
-            self.app_configurator.write("🍳🍔 RatatouAIng 3 recipes with these ingredients... 🥕", True)
-            recipes = self._get_recipes_from_model(ingredients)
-
-        self.app_configurator.write("Almost there! Let me format it nicely, and add some healthy touches 🥦", True)
-
-        # Process each recipe in parallel
-        def process_recipe(recipe):
-            recipe = recipe.json()
-            missing_ingredients = self._get_missing_ingredients(ingredients, recipe)
-            reflection = self._get_reflections(recipe)
-            return recipe, missing_ingredients, reflection
-
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            recipe_futures = [executor.submit(process_recipe, recipe) for recipe in recipes]
-            for future in concurrent.futures.as_completed(recipe_futures):
-                try:
-                    recipe, missing_ingredients, reflection = future.result()
-                    self._format_final_output(recipe, missing_ingredients, reflection)
-                except Exception as e:
-                    logging.error(f"Error processing recipe: {e}", exc_info=True)
-
-        self.app_configurator.close()
+    def _format_web_recipe(self, title: str, raw_content: str) -> str:
+        """Formats the contents and returns the result."""
+        result = self._execute_chain(
+            prompts.system_content_formatting_prompt_template,
+            prompts.human_web_recipe_formatting_prompt_template,
+            self.formatting_model,
+            StrOutputParser(),
+            {"title": title, "raw_content": raw_content},
+            persist=False
+        )
+        return result    
 
     @traceable
     def _format_ingredients(self, ingredients: str) -> str:
@@ -433,62 +308,6 @@ class RatBrain:
         )
         return result
 
-    @traceable
-    def _get_recipes_from_model(self, ingredients: str) -> List[Recipe]:
-        """Gets recipes based on the ingredients and returns a list of Recipe objects."""
-        recipes = self._execute_chain(
-            prompts.system_ingredients2recipe_prompt_template,
-            prompts.human_ingredients2recipe_prompt_template,
-            self.reasoning_model,
-            JsonOutputParser(pydantic_object=RecipesLists, diff=True),
-            {"ingredients_list": ingredients, "recipe_answer_outputformat": prompts.recipeslist_answer_outputformat},
-            isjason=True
-        )
-
-        return RecipesLists.parse_raw(json.dumps(recipes)).recipes_lists
-
-    @traceable
-    def _get_recipes_from_db(self, ingredients: str) -> List[Recipe]:
-        """Gets recipes from the database based on the ingredients."""
-        import requests
-
-        recipe_titles = self._get_recipe_titles(ingredients)
-        recipes = []
-
-        excludeCuisine = self.app_configurator.session_state.exclude_cuisines
-        diet = self.app_configurator.session_state.dietary_preferences
-        intolerances = self.app_configurator.session_state.intolerances
-
-        url = ""  # TODO: Add the URL of the recipe database
-        headers = {}  # TODO: Add the headers for the recipe database
-
-        for recipe in recipe_titles:
-            querystring = {
-                "query": recipe['title'],
-                "excludeCuisine": excludeCuisine,
-                "diet": diet,
-                "intolerances": intolerances,
-                "includeIngredients": ingredients,
-                "instructionsRequired": "true",
-                "fillIngredients": "true",
-                "addRecipeInformation": "true",
-                "addRecipeInstructions": "true",
-                "addRecipeNutrition": "true",
-                "offset": "0",
-                "number": "10",
-                "limitLicense": "false",
-                "ranking": "2"
-            }
-            self.app_configurator.write(querystring, False)
-
-            try:
-                response = requests.get(url, headers=headers, params=querystring)
-                recipes.append(response.json())
-                self.app_configurator.write(response.json(), True)
-            except Exception as e:
-                logging.error(f"Error fetching recipes from database: {e}", exc_info=True)
-
-        return recipes
 
     @traceable
     def _format_output(self, output: str) -> str:
@@ -500,40 +319,6 @@ class RatBrain:
             StrOutputParser(),
             {"output": output},
             persist=False
-        )
-
-    @traceable
-    def _format_final_output(self, recipe: Recipe, missing_ingredients: str, reflection: str) -> str:
-        """Formats the final output and returns the result."""
-        return self._execute_chain(
-            prompts.system_content_formatting_prompt_template,
-            prompts.human_final_formatting_prompt_template,
-            self.formatting_model,
-            StrOutputParser(),
-            {"missing_ingredients": missing_ingredients, "reflection": reflection, "recipe": recipe},
-            persist=True
-        )
-
-    @traceable
-    def _get_reflections(self, recipe: Recipe) -> str:
-        """Gets the reflections for a recipe and returns the result."""
-        return self._execute_chain(
-            prompts.system_recipe_reflection_prompt_template,
-            prompts.human_recipe_reflection_prompt_template,
-            self.reasoning_model,
-            StrOutputParser(),
-            {"recipe": recipe}
-        )
-
-    @traceable
-    def _get_missing_ingredients(self, ingredients: str, recipe: Recipe) -> str:
-        """Gets the missing ingredients for a recipe and returns the result."""
-        return self._execute_chain(
-            prompts.system_ingredients_gaps_prompt_template,
-            prompts.human_ingredients_gaps_prompt_template,
-            self.reasoning_model,
-            StrOutputParser(),
-            {"recipe": recipe, "ingredients_list": ingredients}
         )
 
     @traceable

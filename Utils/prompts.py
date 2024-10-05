@@ -72,6 +72,13 @@ It is important that you remember the following instructions:
 4. Do not add any prefix or postfix to the reply, just the formatted content.
 """
 
+human_web_recipe_formatting_prompt_template = """
+You are given the contents of a web page that contains a recipe.
+Your task is to extract the ingredients, instructions, and nutrition data for {title} from the recipe web page below. Return them as formatted markdown. 
+Here is the web page content: {raw_content}
+"""
+
+
 #############################
 ### Ingredients to recipe ###
 #############################

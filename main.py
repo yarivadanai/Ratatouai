@@ -238,7 +238,7 @@ def run():
 
 
     process_images(images, container, rat_brain)  
-    feeling_lucky = input_container.button("Feeling Lucky - Suggest me 10 recipes!", disabled=len(st.session_state.ingredients) == 0)
+    feeling_lucky = input_container.button("Feeling Lucky - Suggest me 10 recipes!", disabled=len(st.session_state.ingredients)== 0 , icon="😋", type="primary") 
 
     if feeling_lucky:
         fetch_recipes(rat_brain)
