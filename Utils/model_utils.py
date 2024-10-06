@@ -248,7 +248,7 @@ class RatBrain:
 
         return output["recipes_lists"]
 
-    def get_recipes_from_titles(self, recipes_titles: dict) -> None:
+    def get_recipes_from_titles(self, recipes_titles: dict, num_recipes: int) -> None:
         """
         Searches for recipes using the Tavili search API and returns the results as markdown.
 
@@ -259,7 +259,7 @@ class RatBrain:
             None
         """
         self.app_configurator.write(
-            "I will now look for online recipes for the items you selected. I will show you different options for each recipe, so you have options to choose from 😇. Click on the titles to open the recipe.",
+            f"I will now look for online recipes for the items you selected, displaying {num_recipes} options per recipe 😇. Click on the title links to open the recipe.",
             True
         )
         recipes = []
@@ -270,7 +270,7 @@ class RatBrain:
             )
 
             try:
-                response = self.tavili.search(query, include_raw_content=True)
+                response = self.tavili.search(query, include_raw_content=True, max_results=num_recipes)
                 formatted_results = f"### {title}\n\n{description}\n\n"
 
                 for result in response['results']:
@@ -281,6 +281,7 @@ class RatBrain:
                     self.app_configurator.write(formatted_results, True)
             except Exception as e:
                 logging.error(f"Error searching for recipes with title {title}: {e}", exc_info=True)
+        #return recipes_titles
 
     @traceable
     def _format_web_recipe(self, title: str, raw_content: str) -> str:

@@ -161,6 +161,8 @@ def initialize_session_state():
         st.session_state.recipes_recipes_data = None   
     if 'expander_open' not in st.session_state:
         st.session_state.expander_open = True
+    if 'num_recipes' not in st.session_state:
+        st.session_state.num_recipes = 3
 
 def run():
     """
@@ -243,11 +245,11 @@ def run():
     if feeling_lucky:
         fetch_recipes(rat_brain)
 
-    review_recipes(rat_brain)
+    review_recipes(rat_brain, input_container)
 
-    if st.session_state.recipes_recipes_data is not None:
-        with st.spinner("Fetching the recipes information..."):
-            st.json(st.session_state.recipes_recipes_data)
+    #if st.session_state.recipes_recipes_data is not None:
+    #    with st.spinner("Fetching the recipes information..."):
+    #        st.json(st.session_state.recipes_recipes_data)
 
 def display_messages(container):
     """Displays the messages in the session state."""
@@ -300,42 +302,47 @@ def fetch_recipes(rat_brain):
         except Exception as e:
             st.error(f"Error fetching recipes: {e}")
 
-def review_recipes(rat_brain):
+def review_recipes(rat_brain, input_container):
     """Displays the recipes for review and selection."""
-    with st.expander("Review the recipes and select the ones you want to make", expanded=st.session_state.expander_open, icon=":material/checklist:") as expander:
 
-        col1, col2, col3 = st.columns([1, 1, 8])
+    with input_container:
+        with st.expander("Review the recipes and select the ones you want to make", expanded=len(st.session_state.recipes_candidate_list) > 0, icon=":material/checklist:") as expander:
 
-        with col1:
-            if st.button("📜", help="Submit selected recipes"):
-                st.session_state.requested_recipes = [
-                    (title, recipe['description'], recipe['ingredients'])
-                    for title, recipe in st.session_state.recipes_candidate_list.items()
-                    if recipe['checked']
-                ]
-                if len(st.session_state.requested_recipes) > 0:
-                    with st.spinner():
-                        try:
-                            st.session_state.recipes_recipes_data = rat_brain.get_recipes_from_titles(st.session_state.requested_recipes)
-                        except Exception as e:
-                            st.error(f"Error fetching detailed recipes: {e}")
+            col1, col2, col3, col4 = st.columns([1,6,1,6], vertical_alignment="bottom")
 
-        with col2:
-            if st.button("🗑️", help="Delete selected recipes"):
-                selected_recipes = [
-                    title for title, recipe in st.session_state.recipes_candidate_list.items()
-                    if recipe['checked']
-                ]
-                for recipe in selected_recipes:
-                    del st.session_state.recipes_candidate_list[recipe]
+            with col1:
+                if st.button("📜", help="Submit selected recipes"):
+                    st.session_state.requested_recipes = [
+                        (title, recipe['description'], recipe['ingredients'])
+                        for title, recipe in st.session_state.recipes_candidate_list.items()
+                        if recipe['checked']
+                    ]
+                    if len(st.session_state.requested_recipes) > 0:
+                        with st.spinner():
+                            try:
+                                st.session_state.recipes_recipes_data = rat_brain.get_recipes_from_titles(st.session_state.requested_recipes, st.session_state.num_recipes)
+                            except Exception as e:
+                                st.error(f"Error fetching detailed recipes: {e}")
+            
+            with col2:
+                st.selectbox(options=(1,2,3,4,5), label="How many variations per recipe?", index=2, key="num_recipes")
 
-        for title, recipe in st.session_state.recipes_candidate_list.items():
-            checked = st.checkbox(
-                f"{title} - {recipe['description']} - {recipe['ingredients']})",
-                value=recipe['checked'],
-                key=f"recipe_{title}"
-            )
-            st.session_state.recipes_candidate_list[title]['checked'] = checked
+            with col3:
+                if st.button("🗑️", help="Delete selected recipes"):
+                    selected_recipes = [
+                        title for title, recipe in st.session_state.recipes_candidate_list.items()
+                        if recipe['checked']
+                    ]
+                    for recipe in selected_recipes:
+                        del st.session_state.recipes_candidate_list[recipe]
+
+            for title, recipe in st.session_state.recipes_candidate_list.items():
+                checked = st.checkbox(
+                    f"{title} - {recipe['description']} - {recipe['ingredients']})",
+                    value=recipe['checked'],
+                    key=f"recipe_{title}"
+                )
+                st.session_state.recipes_candidate_list[title]['checked'] = checked
 
 
 if __name__ == "__main__":
